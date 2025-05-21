@@ -2,9 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+# Копируем package.json и package-lock.json (если есть)
+COPY package*.json ./
+
+# Чистая установка зависимостей
 RUN npm ci
 
+# Копируем исходный код
 COPY . .
 
 # Создаем оптимизированную сборку

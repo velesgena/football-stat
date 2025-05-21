@@ -2,6 +2,9 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Установка системных зависимостей для компиляции пакетов
+RUN apt-get update && apt-get install -y gcc python3-dev
+
 # Установка зависимостей
 COPY requirements.txt requirements-dev.txt ./
 

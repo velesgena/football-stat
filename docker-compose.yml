@@ -1,0 +1,88 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:17
+    container_name: postgres17
+    restart: always
+    environment:
+      POSTGRES_DB: football
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: pam
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: football_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        ENVIRONMENT: ${ENVIRONMENT:-production}
+    container_name: football_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8088 --reload
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://admin:pam@db:5432/football
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_DIR=/app/logs
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: football_frontend
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://192.168.1.124:8088
+      NEXT_PUBLIC_WS_URL: ws://192.168.1.124:8088/ws
+    restart: always
+    
+  test:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        ENVIRONMENT: development
+    container_name: football_test
+    command: pytest -xvs
+    environment:
+      - DATABASE_URL=postgresql://admin:pam@db:5432/football_test
+      - REDIS_URL=redis://redis:6379/1
+      - ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+      - LOG_DIR=/app/logs
+    volumes:
+      - ./backend:/app
+      - ./backend/logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    profiles:
+      - testing
+
+volumes:
+  pgdata:
+  redis_data:

@@ -1,0 +1,33 @@
+name: Deploy to NAS
+
+on:
+  push:
+    branches:
+      - master  # было main, теперь master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.NAS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Add NAS to known_hosts
+        run: |
+          ssh-keyscan -H 192.168.1.124 >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@192.168.1.124 "
+            cd /volume1/docker/football-stat &&
+            git pull &&
+            docker compose pull &&
+            docker compose up -d
+          "
